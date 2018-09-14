@@ -126,42 +126,32 @@ Reporter.prototype.mergeOutput = function mergeOutput(previous) {
 // Since that code is running in separate processes, it isn't easy to use a global/static class variable to
 // handle a single instance of the jasmine reporter - nor is it easy to aggregate the results. So the trick here
 // is to lock, read any file that exists, merge, write results to file, and then release lock.
-Reporter.prototype.jasmineDone = function jasmineDone() {
-  var self = this;
-  var resultsOutput;
-  var lockname = this.options.file + '.lock';
-  var previous;
-  var raw;
+Reporter.prototype.jasmineDone = function jasmineDone(suiteInfo) {
 
-  self.output.stats.end = new global.Date();
+	console.log('suiteInfo = ', suiteInfo);
+	console.log('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ jasmine done');
+	var self = this;
+	var resultsOutput;
+	var lockname = this.options.file + '.lock';
+	var previous;
+	var raw;
 
+	self.output.stats.end = new global.Date();
 
-  lockFile.lock(lockname, {wait: 2000}, function postLock(er) {
-    if (er) {
-      /* eslint-disable no-console */
-      console.error('Jasmine bamboo reporter unable to acquire a file lock for ' + lockname);
-      /* eslint-enable no-console */
-      return;
-    }
-    // we can ensure that no other process will update the results causing a write-afte-read hazard.
+	lockFile.lockSync(lockname);
+	// we can ensure that no other process will update the results causing a write-afte-read hazard.
 
-    if (fs.existsSync(self.options.file)) {
-      raw = fs.readFileSync(self.options.file, {encoding: 'utf8'});
-      previous = JSON.parse(raw);
-      self.mergeOutput(previous);
-    }
-    self.output.stats.duration = Math.floor((self.output.stats.end.getTime() - self.output.stats.start.getTime()) / 1000);
-    self.output.stats.time = self.output.stats.duration;
-    resultsOutput = self.options.beautify ? JSON.stringify(self.output, null, self.options.indentationLevel) : JSON.stringify(self.output);
-    fs.writeFileSync(self.options.file, resultsOutput);
-    lockFile.unlock(lockname, function postUnlock(erUnlock) {
-      if (erUnlock) {
-        /* eslint-disable no-console */
-        console.error('Jasmine bamboo reporter could not unlock file ' + lockname);
-        /* eslint-enable no-console */
-      }
-    });
-  });
+	if (fs.existsSync(self.options.file)) {
+		raw = fs.readFileSync(self.options.file, { encoding: 'utf8' });
+		previous = JSON.parse(raw);
+		self.mergeOutput(previous);
+	}
+
+	self.output.stats.duration = Math.floor((self.output.stats.end.getTime() - self.output.stats.start.getTime()) / 1000);
+	self.output.stats.time = self.output.stats.duration;
+	resultsOutput = self.options.beautify ? JSON.stringify(self.output, null, self.options.indentationLevel) : JSON.stringify(self.output);
+	fs.writeFileSync(self.options.file, resultsOutput);
+	lockFile.unlockSync(lockname);
 };
 
 module.exports = Reporter;
